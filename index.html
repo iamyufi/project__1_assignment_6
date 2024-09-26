@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>index</title>
+    <style>
+        /* Center the content vertically and horizontally */
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        /* Style the main container */
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 600px;
+            position: relative;
+        }
+        /* Style the textarea input */
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        /* Remove default paragraph margins */
+        p {
+            margin: 5px 0;
+        }
+        /* Style the progress bar container */
+        .progress-bar {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        /* Style the progress bar */
+        .progress {
+            height: 20px;
+            background-color: #4CAF50;
+            border-radius: 4px;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+        }
+        /* Style the canvas container */
+        #canvasContainer {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            margin-top: 20px;
+        }
+        /* Position canvases absolutely within the container */
+        canvas {
+            border: 1px solid #ddd;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Word counter</h2>
+        <!-- Text input area -->
+        <textarea id="inputText" placeholder="insert words here..."></textarea>
+        <!-- Progress bar -->
+        <div class="progress-bar">
+            <div id="progressBar" class="progress">0/245</div>
+        </div>
+        <!-- Character count display with increment/decrement buttons -->
+        <p>Characters: <span id="charCount">0</span> 
+           <button id="decrement">-</button> <button id="increment">+</button>
+        </p>
+        <!-- Word count display -->
+        <p>Words: <span id="wordCount">0</span></p>
+        <!-- Special character count display -->
+        <p>Special_Characters: <span id="specialCharCount">0</span></p>
+        <!-- Average characters per word display -->
+        <p>Average Character Per Word: <span id="avgCharsPerWord">0</span></p>
+        <!-- Canvas container for trash can and falling letters -->
+        <div id="canvasContainer">
+            <canvas id="trashCanCanvas" width="600" height="300"></canvas>
+            <canvas id="letterCanvas" width="600" height="300"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Maximum character limit
+        const MAX_CHARS = 244;
+        // Array to store falling letter objects
+        let fallingLetters = [];
+
+        // Object to store references to DOM elements
+        const elements = {
+            input: document.getElementById('inputText'),
+            charCount: document.getElementById('charCount'),
+            wordCount: document.getElementById('wordCount'),
+            specialCharCount: document.getElementById('specialCharCount'),
+            avgCharsPerWord: document.getElementById('avgCharsPerWord'),
+            progressBar: document.getElementById('progressBar'),
+            trashCanCanvas: document.getElementById('trashCanCanvas'),
+            letterCanvas: document.getElementById('letterCanvas'),
+            trashCanCtx: document.getElementById('trashCanCanvas').getContext('2d'),
+            letterCtx: document.getElementById('letterCanvas').getContext('2d')
+        };
+
+        // Load and draw the trash can image
+        const trashCanImg = new Image();
+        trashCanImg.src = '../img/trash2.png'; // Placeholder image
+        trashCanImg.onload = () => elements.trashCanCtx.drawImage(trashCanImg, 150, 0, 300, 300);
+
+        // Function to update all counts and trigger animations
+        function updateCounts() {
+            const text = elements.input.value;
+            const cleanText = text.replace(/[^a-zA-Z0-9\s]/g, '');
+            const words = text.trim().split(/\s+/);
+            
+            // Calculate various counts
+            const counts = {
+                chars: text.length,
+                words: words.length,
+                special: text.length - cleanText.length,
+                avg: words.length ? cleanText.replace(/\s/g, '').length / words.length : 0
+            };
+
+            // Update display for each count
+            Object.keys(counts).forEach(key => {
+                elements[key === 'chars' ? 'charCount' : key === 'words' ? 'wordCount' : key === 'special' ? 'specialCharCount' : 'avgCharsPerWord'].textContent = 
+                    key === 'avg' ? counts[key].toFixed(2) : counts[key];
+            });
+
+            // Update progress bar and falling letters
+            updateProgressBar(counts.chars);
+            updateFallingLetters(text);
+        }
+
+        // Function to update the progress bar
+        function updateProgressBar(count) {
+            const percentage = Math.min((count / MAX_CHARS) * 100, 100);
+            elements.progressBar.style.width = `${percentage}%`;
+            elements.progressBar.textContent = `${count}/${MAX_CHARS}`;
+        }
+
+        // Function to update falling letters animation
+        function updateFallingLetters(text) {
+            if (text.length > MAX_CHARS) {
+                const excessChars = text.slice(MAX_CHARS);
+                const inputRect = elements.input.getBoundingClientRect();
+                const canvasRect = elements.letterCanvas.getBoundingClientRect();
+
+                // Create falling letter objects for excess characters
+                excessChars.split('').forEach(char => 
+                    fallingLetters.push({
+                        char,
+                        x: Math.random() * (inputRect.width - 20) + (inputRect.left - canvasRect.left),
+                        y: inputRect.bottom - canvasRect.top,
+                        speed: 1 + Math.random() * 2
+                    })
+                );
+
+                // Trim input text to maximum allowed characters
+                elements.input.value = text.slice(0, MAX_CHARS);
+            }
+        }
+
+        // Function to animate falling letters
+        function animate() {
+            elements.letterCtx.clearRect(0, 0, elements.letterCanvas.width, elements.letterCanvas.height);
+
+            elements.letterCtx.font = '20px Arial';
+            elements.letterCtx.fillStyle = 'black';
+
+            // Update and draw each falling letter
+            fallingLetters = fallingLetters.filter(letter => {
+                elements.letterCtx.fillText(letter.char, letter.x, letter.y);
+                letter.y += letter.speed;
+                return letter.y < elements.letterCanvas.height;
+            });
+
+            // Continue the animation loop
+            requestAnimationFrame(animate);
+        }
+
+        // Event listener for input changes
+        elements.input.addEventListener('input', updateCounts);
+
+        // Event listener for increment button
+        document.getElementById('increment').addEventListener('click', () => {
+            elements.charCount.textContent = Math.min(parseInt(elements.charCount.textContent) + 1, MAX_CHARS);
+            updateProgressBar(parseInt(elements.charCount.textContent));
+        });
+
+        // Event listener for decrement button
+        document.getElementById('decrement').addEventListener('click', () => {
+            elements.charCount.textContent = Math.max(parseInt(elements.charCount.textContent) - 1, 0);
+            updateProgressBar(parseInt(elements.charCount.textContent));
+        });
+
+        // Start the animation loop
+        animate();
+        // Initial update of counts
+        updateCounts();
+    </script>
+</body>
+</html>
